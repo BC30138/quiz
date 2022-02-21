@@ -1,0 +1,5 @@
+mac
+
+```
+brew install ffmpeg
+```
