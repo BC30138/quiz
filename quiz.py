@@ -7,7 +7,7 @@ from pytube.cli import on_progress
 from moviepy.editor import AudioFileClip
 
 
-CUT_DELTAS = [5, 10, 30]
+CUT_DELTAS = [2, 10, 30]
 
 
 def load_track_list(track_list_path: str) -> list:
