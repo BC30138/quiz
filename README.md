@@ -26,5 +26,5 @@ Also `ffmpeg` may need (apt, brew, whatever)
 python3 quiz.py -tl output/track_list.json -o tmp
 ```
 
-- `-tl --track_list_path` is path to json with track list, *default*: `"track_list.json"`
-- `-o --output` is output folder, *default*: `"output"`
+- `-tl --track_list_path` is path to json with track list, **default**: `"track_list.json"`
+- `-o --output` is output folder, **default**: `"output"`
