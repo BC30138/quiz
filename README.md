@@ -4,7 +4,7 @@ Usage:
 
 1. Install required packages:
 ```
-pip3 install requirements.txt
+pip3 install -r requirements.txt
 ```
 Also `ffmpeg` may need (apt, brew, whatever)
 
