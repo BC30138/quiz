@@ -30,7 +30,15 @@ class GameState:
     def add_participant(self, participant):
         self._participants.append(participant)
 
+    def get_all(self):
+        return self._participants + [self._host]
+
 GAME_STATE = GameState()
+
+
+def get_person_name(participant_chat):
+    name = ((participant_chat.first_name or '') + ' ' + (participant_chat.last_name or '')).strip()
+    return name or participant_chat.username or participant_chat.title or '<без имени>'
 
 
 HOST_GENERAL_MARKUP = telegram.InlineKeyboardMarkup([[telegram.InlineKeyboardButton('🔄', callback_data='host_action_buzzers_on'),
@@ -47,13 +55,16 @@ def handle_participant_action_buzz(update: Update, context: CallbackContext):
         GAME_STATE.set_buzzers_on(False)
         who_buzzed = update.effective_chat
         context.bot.send_message(who_buzzed.id, 'Ты отвечаешь первым!')
-        context.bot.send_message(GAME_STATE.get_host().id, text=f"Отвечает {who_buzzed.username}.", reply_markup=HOST_GENERAL_MARKUP)
+        for person in GAME_STATE.get_participants():
+            if person != who_buzzed:
+                context.bot.send_message(person.id, text=f"Ты не успел! Отвечает {get_person_name(who_buzzed)}.")
+        context.bot.send_message(GAME_STATE.get_host().id, text=f"Отвечает {get_person_name(who_buzzed)}.", reply_markup=HOST_GENERAL_MARKUP)
 
 
 def handle_host_action_game_over(update: Update, context: CallbackContext):
     global GAME_STATE
     if update.effective_chat == GAME_STATE.get_host():
-        for person in GAME_STATE.get_participants() + [GAME_STATE.get_host()]:
+        for person in GAME_STATE.get_all():
             context.bot.send_message(chat_id=person.id, text='Игра завершена!', reply_markup=telegram.ReplyKeyboardRemove())
         GAME_STATE = GameState()
 
@@ -69,6 +80,8 @@ def handle_host_action_buzzers_on(update: Update, context: CallbackContext):
 def handle_choose_role_participant(update: Update, context: CallbackContext):
     GAME_STATE.add_participant(update.effective_chat)
     context.bot.send_message(chat_id=update.effective_chat.id, text='Это твой баззер. Нажимай, если знаешь ответ!', reply_markup=PARTICIPANT_GENERAL_MARKUP)
+    if GAME_STATE.get_host():
+        context.bot.send_message(chat_id=GAME_STATE.get_host().id, text=f"Участник {get_person_name(update.effective_chat)} вошёл в игру.", reply_markup=HOST_GENERAL_MARKUP)
 
 
 def handle_choose_role_host(update: Update, context: CallbackContext):
@@ -79,6 +92,12 @@ def handle_choose_role_host(update: Update, context: CallbackContext):
         return
 
     GAME_STATE.set_host(update.effective_chat)
+    if GAME_STATE.get_participants():
+        context.bot.send_message(chat_id=update.effective_chat.id,
+                                 text=f"В игру уже вошли: {','.join(get_person_name(participant) for participant in GAME_STATE.get_participants())}.")
+    else:
+        context.bot.send_message(chat_id=update.effective_chat.id,
+                                 text=f"В игру пока никто не вошёл.")
     context.bot.send_message(chat_id=update.effective_chat.id,
                              text='Нажми на 🔄, чтобы начать раунд. '
                                   'Первый баззер участника заблокирует остальные. '
@@ -96,13 +115,14 @@ def handle_choose_role(update: Update, context: CallbackContext):
 
 
 def handle_start(update: Update, context: CallbackContext):
-    context.bot.send_message(chat_id=update.effective_chat.id,
-                             text='Привет! Ты участвуешь в музыкальном квизе Образовательного Канала.',
-                             reply_markup=telegram.ReplyKeyboardRemove())
-    if GAME_STATE.get_host() is not None:
-        handle_choose_role_participant(update, context)
-    else:
-        handle_choose_role(update, context)
+    if update.effective_chat not in GAME_STATE.get_all():
+        context.bot.send_message(chat_id=update.effective_chat.id,
+                                 text='Привет! Ты участвуешь в музыкальном квизе Образовательного Канала.',
+                                 reply_markup=telegram.ReplyKeyboardRemove())
+        if GAME_STATE.get_host() is not None:
+            handle_choose_role_participant(update, context)
+        else:
+            handle_choose_role(update, context)
 
 
 INLINE_KEYBOARD_HANDLERS = {
