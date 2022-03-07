@@ -41,7 +41,7 @@ def cut(track_list: str, output_folder: str):
         track_output = f'{output_folder}/cut/{track["name"]}'
         Path(track_output).mkdir(parents=True, exist_ok=True)
         min, sec = track['time'].split(':')
-        start_sec = int(min) * 60 + int(sec)
+        start_sec = int(min) * 60 + float(sec)
         clip = AudioFileClip(track['path'])
         for delta_sec in CUT_DELTAS:
             subclip = clip.subclip(start_sec, start_sec + delta_sec)
