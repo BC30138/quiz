@@ -55,6 +55,9 @@ def handle_participant_action_buzz(update: Update, context: CallbackContext):
         GAME_STATE.set_buzzers_on(False)
         who_buzzed = update.effective_chat
         context.bot.send_message(who_buzzed.id, 'Ты отвечаешь первым!')
+        for person in GAME_STATE.get_participants():
+            if person != who_buzzed:
+                context.bot.send_message(person.id, text=f"Ты не успел! Отвечает {get_person_name(who_buzzed)}.")
         context.bot.send_message(GAME_STATE.get_host().id, text=f"Отвечает {get_person_name(who_buzzed)}.", reply_markup=HOST_GENERAL_MARKUP)
 
 
