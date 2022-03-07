@@ -8,6 +8,13 @@ from moviepy.editor import AudioFileClip
 
 
 CUT_DELTAS = [2, 10, 30]
+WINDOWS_PATH_CONFLICTING_SYMBOLS = '\\/:*?"<>|'
+
+
+def adapt_name_to_all_filesystems(name: str):
+    for no_no_symbol in WINDOWS_PATH_CONFLICTING_SYMBOLS:
+        name = ''.join(name.split(no_no_symbol))
+    return name
 
 
 def load_track_list(track_list_path: str) -> list:
@@ -25,9 +32,10 @@ def download(track_list: list, output_folder: str):
         ).streams.filter(
             only_audio=True,
         ).last()
+        adapted_title = adapt_name_to_all_filesystems(audio_stream.title)
         track.update({
-            'name': audio_stream.title,
-            'path': f'{originals_folder}/{audio_stream.title}.webm'
+            'name': adapted_title,
+            'path': f'{originals_folder}/{adapted_title}.webm'
         })
         print(f"Download - {audio_stream.title}")
         audio_stream.download(
@@ -41,7 +49,7 @@ def cut(track_list: str, output_folder: str):
         track_output = f'{output_folder}/cut/{track["name"]}'
         Path(track_output).mkdir(parents=True, exist_ok=True)
         min, sec = track['time'].split(':')
-        start_sec = int(min) * 60 + int(sec)
+        start_sec = int(min) * 60 + float(sec)
         clip = AudioFileClip(track['path'])
         for delta_sec in CUT_DELTAS:
             subclip = clip.subclip(start_sec, start_sec + delta_sec)
