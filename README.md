@@ -1,14 +1,18 @@
 # QUIZ
 
-Usage: 
+This is a set of tools to conduct a musical quiz.
 
-1. Install required packages:
+## Prerequisites
+
+Install the required packages:
 ```
 pip3 install -r requirements.txt
 ```
-Also `ffmpeg` may need (apt, brew, whatever)
+Also, `ffmpeg` may be needed (use apt, brew, whatever).
 
-2. Create track list json like this:
+## Generating audio snippets from YouTube links
+
+1. Create track list json like this:
 ```jsonc
 [
     {
@@ -21,10 +25,20 @@ Also `ffmpeg` may need (apt, brew, whatever)
     }
 ]
 ```
-3. Use cli quiz: 
+2. Use cli quiz:
 ```
 python3 quiz.py -tl output/track_list.json -o tmp
 ```
 
 - `-tl --track_list_path` is path to json with track list, **default**: `"track_list.json"`
 - `-o --output` is output folder, **default**: `"output"`
+
+## Running the Telegram bot to conduct the quiz
+
+The Telegram bot allows participants to use buzzers.
+This way, the quiz host will always know which participant was the first to come up with an answer.
+
+Run this line replacing `<BOT_TOKEN>` with the actual token of your bot.
+```
+python3 telegram_bot.py -t <BOT_TOKEN>
+```
