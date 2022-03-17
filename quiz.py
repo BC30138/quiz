@@ -1,8 +1,8 @@
 """Util to create subclips for quiz from youtube link"""
+import shutil
 import sys
 import json
 import logging
-import shutil
 from argparse import ArgumentParser, BooleanOptionalAction
 from pathlib import Path
 from typing import List, Dict, DefaultDict, Optional
@@ -40,12 +40,16 @@ def create_path(*args) -> Path:
 @dataclass
 class QuizModel:
     track_list: List[Dict[str, str]]
-    output_path: Path
+    output_path: str
+    reveal_names: bool
     download_cache: DefaultDict[str, Dict[str, str]] = field(
         default_factory=lambda: defaultdict(dict),
     )
     cut_cache: DefaultDict[str, Dict[str, str]] = field(
         default_factory=lambda: defaultdict(dict),
+    )
+    info: List[Dict[str, str]] = field(
+        default_factory=lambda: [],
     )
     cut_deltas: List[int] = field(
         default_factory=lambda: [2, 10, 30],
@@ -153,16 +157,28 @@ def download(quiz: QuizModel):
 
 def cut(quiz: QuizModel):
     actual_cuts = defaultdict(dict)
-    for track in quiz.track_list:
+    for it, track in enumerate(quiz.track_list):
+        track_name = quiz.download_cache[track['url']]['name']
         track_path_name = quiz.download_cache[track['url']]['path_name']
         time_for_path = adapt_time_to_path(track['time'])
         folder_name = f'{track_path_name}_{time_for_path}'
-        cut_path = create_path(quiz.cut_path, folder_name)
+
+        if quiz.reveal_names:
+            cut_path = create_path(quiz.cut_path, folder_name)
+        else:
+            cut_path = create_path(quiz.cut_path, str(it).zfill(2))
+        quiz.info.append(
+            {
+                'name': track_name,
+                'path': cut_path,
+                'time': track['time'],
+                'url': track['url'],
+            },
+        )
 
         actual_cuts[track['url']][track['time']] = str(cut_path)
         if track['url'] in quiz.cut_cache and \
            track['time'] in quiz.cut_cache[track['url']]:
-            track_name = quiz.download_cache[track['url']]['name']
             logger.info(f'Found cache for {track_name} {track["time"]}')
             continue
 
@@ -183,6 +199,11 @@ def cut(quiz: QuizModel):
     remove_unused_cuts(quiz, actual_cuts)
 
 
+def save_info(quiz: QuizModel):
+    with open(f'{quiz.output_path}/info.json', 'w') as cf:
+        json.dump(quiz.info, cf, indent=4, ensure_ascii=False)
+
+
 def save_cache_info(quiz: QuizModel):
     with open(Path(quiz.originals_path, 'cache_info.json'), 'w') as cf:
         json.dump(quiz.download_cache, cf, indent=4)
@@ -190,9 +211,11 @@ def save_cache_info(quiz: QuizModel):
         json.dump(quiz.cut_cache, cf, indent=4)
 
 
-def main(track_list_path: str, output: str, reset_cache: bool):
+def main(track_list_path: str, output: str,
+         reset_cache: bool, reveal_names: bool):
     quiz = QuizModel(
         output_path=output,
+        reveal_names=reveal_names,
         track_list=load_track_list(track_list_path),
     )
     if not reset_cache:
@@ -201,17 +224,25 @@ def main(track_list_path: str, output: str, reset_cache: bool):
         quiz.reset_cache()
     download(quiz)
     cut(quiz)
+    save_info(quiz)
     save_cache_info(quiz)
 
 
 if __name__ == "__main__":
     parser = ArgumentParser(description='Make quiz music.')
     parser.add_argument('-tl', '--track_list_path',
-                        help="Track list file", type=str,
+                        help='Track list file', type=str,
                         default='track_list.json')
     parser.add_argument('-o', '--output',
                         help="Output folder", type=str,
                         default='output')
-    parser.add_argument('-rc', '--reset_cache', action=BooleanOptionalAction)
+    parser.add_argument(
+        '-rn', '--reveal_names', action=BooleanOptionalAction,
+        help='Flag to reveal track names for saving cut folders',
+    )
+    parser.add_argument(
+        '-rc', '--reset_cache', action=BooleanOptionalAction,
+        help='Flag to not use existing cache until processing',
+    )
     args = parser.parse_args()
     main(**vars(args))

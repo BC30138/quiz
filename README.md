@@ -32,6 +32,8 @@ python3 quiz.py -tl output/track_list.json -o tmp
 
 - `-tl --track_list_path` is path to json with track list, **default**: `"track_list.json"`
 - `-o --output` is output folder, **default**: `"output"`
+- `-rn --reveal_names` Flag to reveal track names for saving cut folders
+- `-rc --reset_cache` Flag to not use existing cache until processing
 
 ## Running the Telegram bot to conduct the quiz
 
