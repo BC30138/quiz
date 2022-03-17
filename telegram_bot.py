@@ -1,6 +1,7 @@
 import argparse
 import logging
 
+import pickle
 import telegram
 from telegram import Update
 from telegram.ext import CallbackContext
@@ -34,6 +35,24 @@ class GameState:
         return self._participants + [self._host]
 
 GAME_STATE = GameState()
+PARTICIPANTS_INPUT = None
+PARTICIPANTS_OUTPUT = None
+
+
+def invite_participants(bot, participants_input: str):
+    with open(participants_input, 'rb') as fi:
+        participant_ids = pickle.load(fi)
+    for participant_id in participant_ids:
+        all_ids = set(participant.id for participant in GAME_STATE.get_all())
+        if participant_id not in all_ids:
+            bot.send_message(chat_id=participant_id,
+                             text='Привет! Квиз уже начинается. Чтобы участвовать, нажми /start.',
+                             reply_markup=telegram.ReplyKeyboardRemove())
+
+
+def save_participants(participants_input: str):
+    with open(participants_input, 'wb') as fo:
+        pickle.dump([participant.id for participant in GAME_STATE.get_all()], fo)
 
 
 def get_person_name(participant_chat):
@@ -64,8 +83,11 @@ def handle_participant_action_buzz(update: Update, context: CallbackContext):
 def handle_host_action_game_over(update: Update, context: CallbackContext):
     global GAME_STATE
     if update.effective_chat == GAME_STATE.get_host():
-        for person in GAME_STATE.get_all():
+        all_people = GAME_STATE.get_all()
+        for person in all_people:
             context.bot.send_message(chat_id=person.id, text='Игра завершена!', reply_markup=telegram.ReplyKeyboardRemove())
+        if PARTICIPANTS_OUTPUT is not None:
+            save_participants(PARTICIPANTS_OUTPUT)
         GAME_STATE = GameState()
 
 
@@ -98,6 +120,8 @@ def handle_choose_role_host(update: Update, context: CallbackContext):
     else:
         context.bot.send_message(chat_id=update.effective_chat.id,
                                  text=f"В игру пока никто не вошёл.")
+    if PARTICIPANTS_INPUT is not None:
+        invite_participants(context.bot, PARTICIPANTS_INPUT)
     context.bot.send_message(chat_id=update.effective_chat.id,
                              text='Нажми на 🔄, чтобы начать раунд. '
                                   'Первый баззер участника заблокирует остальные. '
@@ -151,8 +175,14 @@ if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
     parser = argparse.ArgumentParser(description='Telegram bot for conducting music quizzes')
-    parser.add_argument('-t', '--token', dest='token', type=str)
+    parser.add_argument('-t', '--token', dest='token', type=str, help='Telegram bot token')
+    parser.add_argument('-o', '--participants-output', dest='participants_output', type=str, default=None, required=False,
+                        help='where to save the participants data')
+    parser.add_argument('-i', '--participants-input', dest='participants_input', type=str, default=None, required=False,
+                        help='here, provide previously saved participants data, if you want to invite them to the game')
     args = parser.parse_args()
+    PARTICIPANTS_INPUT = args.participants_input
+    PARTICIPANTS_OUTPUT = args.participants_output
 
     bot = create_bot(args.token)
     bot.start_polling()
