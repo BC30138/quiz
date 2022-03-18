@@ -115,19 +115,32 @@ def load_track_list(track_list_path: str) -> list:
         return json.load(tl_file)
 
 
-def remove_unused_cuts(quiz: QuizModel, actual_cuts: defaultdict):
-    to_delete = defaultdict(dict)
-    for track_url in quiz.cut_cache:
-        for track_time, path in quiz.cut_cache[track_url].items():
-            if track_time not in actual_cuts[track_url]:
-                to_delete[track_url][track_time] = path
+def delete_from_cuts_obj(
+    to_delete: defaultdict,
+    quiz: Optional[QuizModel] = None,
+):
     for track_url, delete_obj in to_delete.items():
         for track_time, path in delete_obj.items():
             logger.info(f'Removing unused cut - {path}')
             shutil.rmtree(path)
-            quiz.cut_cache[track_url].pop(track_time)
-        if not quiz.cut_cache[track_url]:
+            if quiz: quiz.cut_cache[track_url].pop(track_time)  # noqa: E701
+        if quiz and not quiz.cut_cache[track_url]:
             quiz.cut_cache.pop(track_url)
+
+
+def remove_unused_cuts(
+    quiz: QuizModel,
+    actual_cuts: defaultdict,
+    force_delete: defaultdict
+):
+    to_delete = defaultdict(dict)
+    for track_url in quiz.cut_cache:
+        for track_time, path in quiz.cut_cache[track_url].items():
+            if track_time not in actual_cuts[track_url] or \
+               actual_cuts[track_url][track_time] != path:
+                to_delete[track_url][track_time] = path
+    delete_from_cuts_obj(to_delete, quiz)
+    delete_from_cuts_obj(force_delete)
 
 
 def download(quiz: QuizModel):
@@ -157,6 +170,7 @@ def download(quiz: QuizModel):
 
 def cut(quiz: QuizModel):
     actual_cuts = defaultdict(dict)
+    force_delete = defaultdict(dict)
     for it, track in enumerate(quiz.track_list):
         track_name = quiz.download_cache[track['url']]['name']
         track_path_name = quiz.download_cache[track['url']]['path_name']
@@ -170,7 +184,7 @@ def cut(quiz: QuizModel):
         quiz.info.append(
             {
                 'name': track_name,
-                'path': cut_path,
+                'path': str(cut_path),
                 'time': track['time'],
                 'url': track['url'],
             },
@@ -179,8 +193,15 @@ def cut(quiz: QuizModel):
         actual_cuts[track['url']][track['time']] = str(cut_path)
         if track['url'] in quiz.cut_cache and \
            track['time'] in quiz.cut_cache[track['url']]:
-            logger.info(f'Found cache for {track_name} {track["time"]}')
-            continue
+            if quiz.cut_cache[track['url']][track['time']] == str(cut_path):
+                logger.info(f'Found cache for {track_name} {track["time"]}')
+                continue
+            else:
+                # trouble: when we reveal names cut cache overrides and then
+                # not not revealed folders will not be deleted
+                # dirty, i know, but i decided that now its ok
+                force_delete[track['url']][track['time']] = \
+                    quiz.cut_cache[track['url']][track['time']]
 
         logger.info(f'Extracting subclip for {folder_name}')
         min, sec = track['time'].split(':')
@@ -196,7 +217,7 @@ def cut(quiz: QuizModel):
             )
         quiz.cut_cache[track['url']][track['time']] = str(cut_path)
         logger.info(f'Extracting subclip for {folder_name} done')
-    remove_unused_cuts(quiz, actual_cuts)
+    remove_unused_cuts(quiz, actual_cuts, force_delete)
 
 
 def save_info(quiz: QuizModel):
