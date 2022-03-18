@@ -111,6 +111,21 @@ def load_track_list(track_list_path: str) -> list:
         return json.load(tl_file)
 
 
+def remove_unused_cuts(quiz: QuizModel, actual_cuts: defaultdict):
+    to_delete = defaultdict(dict)
+    for track_url in quiz.cut_cache:
+        for track_time, path in quiz.cut_cache[track_url].items():
+            if track_time not in actual_cuts[track_url]:
+                to_delete[track_url][track_time] = path
+    for track_url, delete_obj in to_delete.items():
+        for track_time, path in delete_obj.items():
+            logger.info(f'Removing unused cut - {path}')
+            shutil.rmtree(path)
+            quiz.cut_cache[track_url].pop(track_time)
+        if not quiz.cut_cache[track_url]:
+            quiz.cut_cache.pop(track_url)
+
+
 def download(quiz: QuizModel):
     for track in quiz.track_list:
         if track['url'] in quiz.download_cache:
@@ -137,19 +152,21 @@ def download(quiz: QuizModel):
 
 
 def cut(quiz: QuizModel):
+    actual_cuts = defaultdict(dict)
     for track in quiz.track_list:
         track_path_name = quiz.download_cache[track['url']]['path_name']
         time_for_path = adapt_time_to_path(track['time'])
         folder_name = f'{track_path_name}_{time_for_path}'
+        cut_path = create_path(quiz.cut_path, folder_name)
 
+        actual_cuts[track['url']][track['time']] = str(cut_path)
         if track['url'] in quiz.cut_cache and \
            track['time'] in quiz.cut_cache[track['url']]:
             track_name = quiz.download_cache[track['url']]['name']
-            logger.info(f'Found cache for {track_name}')
+            logger.info(f'Found cache for {track_name} {track["time"]}')
             continue
 
         logger.info(f'Extracting subclip for {folder_name}')
-        cut_path = create_path(quiz.cut_path, folder_name)
         min, sec = track['time'].split(':')
         start_sec = int(min) * 60 + float(sec)
         clip = AudioFileClip(quiz.download_cache[track['url']]['path'])
@@ -163,6 +180,7 @@ def cut(quiz: QuizModel):
             )
         quiz.cut_cache[track['url']][track['time']] = str(cut_path)
         logger.info(f'Extracting subclip for {folder_name} done')
+    remove_unused_cuts(quiz, actual_cuts)
 
 
 def save_cache_info(quiz: QuizModel):
