@@ -2,6 +2,7 @@
 import sys
 import json
 import logging
+import shutil
 from argparse import ArgumentParser, BooleanOptionalAction
 from pathlib import Path
 from typing import List, Dict, DefaultDict, Optional
@@ -74,6 +75,12 @@ class QuizModel:
         )
         cache = self._load_defaultdict(cut_cache_path)
         if cache: self.cut_cache = cache  # noqa: E701
+
+    def reset_cache(self):
+        shutil.rmtree(self.cut_path)
+        create_path(self.cut_path)
+        shutil.rmtree(self.originals_path)
+        create_path(self.originals_path)
 
     @staticmethod
     def _load_defaultdict(path: Path) -> Optional[defaultdict]:
@@ -172,6 +179,8 @@ def main(track_list_path: str, output: str, reset_cache: bool):
     )
     if not reset_cache:
         quiz.load_cache()
+    else:
+        quiz.reset_cache()
     download(quiz)
     cut(quiz)
     save_cache_info(quiz)
