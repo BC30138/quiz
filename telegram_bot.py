@@ -50,8 +50,8 @@ def invite_participants(bot, participants_input: str):
                              reply_markup=telegram.ReplyKeyboardRemove())
 
 
-def save_participants(participants_input: str):
-    with open(participants_input, 'wb') as fo:
+def save_participants(participants_output: str):
+    with open(participants_output, 'wb') as fo:
         pickle.dump([participant.id for participant in GAME_STATE.get_all()], fo)
 
 
