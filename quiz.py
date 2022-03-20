@@ -3,7 +3,7 @@ import shutil
 import sys
 import json
 import logging
-from argparse import ArgumentParser, BooleanOptionalAction
+from argparse import ArgumentParser
 from pathlib import Path
 from typing import List, Dict, DefaultDict, Optional
 from collections import defaultdict
@@ -258,11 +258,11 @@ if __name__ == "__main__":
                         help="Output folder", type=str,
                         default='output')
     parser.add_argument(
-        '-rn', '--reveal_names', action=BooleanOptionalAction,
+        '-rn', '--reveal_names', action='store_true',
         help='Flag to reveal track names for saving cut folders',
     )
     parser.add_argument(
-        '-rc', '--reset_cache', action=BooleanOptionalAction,
+        '-rc', '--reset_cache', action='store_true',
         help='Flag to not use existing cache until processing',
     )
     args = parser.parse_args()
